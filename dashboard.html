@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>AI Patient Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+    margin:0;
+    font-family:Arial, sans-serif;
+    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color:white;
+}
+header{
+    padding:15px 40px;
+    background:rgba(0,0,0,0.3);
+    display:flex;
+    justify-content:space-between;
+}
+header h2{color:#00ffd5;}
+nav a{
+    color:white;
+    margin-left:20px;
+    text-decoration:none;
+}
+h1{margin:30px 40px;}
+.container{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:20px;
+    padding:20px 40px;
+}
+.card{
+    background:rgba(255,255,255,0.08);
+    padding:20px;
+    border-radius:15px;
+}
+input,textarea{
+    width:100%;
+    padding:10px;
+    margin-bottom:12px;
+    border-radius:8px;
+    border:none;
+}
+textarea{height:80px;}
+button{
+    width:100%;
+    padding:12px;
+    border-radius:10px;
+    border:none;
+    background:#00ffd5;
+    font-weight:bold;
+    cursor:pointer;
+}
+.progress{
+    background:#444;
+    border-radius:10px;
+    overflow:hidden;
+}
+.progress-bar{
+    height:10px;
+    width:0%;
+    background:#00ffd5;
+}
+.alert{
+    background:rgba(255,200,0,0.2);
+    padding:10px;
+    border-radius:8px;
+}
+.symptom-box{
+    max-height:180px;
+    overflow-y:auto;
+}
+.symptom-box label{
+    display:block;
+    margin-bottom:5px;
+}
+@media(max-width:1000px){
+    .container{grid-template-columns:1fr;}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h2>Agentic AI</h2>
+    <nav>
+        <a href="#">Home</a>
+        <a href="#">Dashboard</a>
+    </nav>
+</header>
+
+<h1>AI Patient Dashboard</h1>
+
+<div class="container">
+
+<!-- Patient Input -->
+<div class="card">
+    <h3>🩺 Patient Input</h3>
+    <input type="text" id="name" placeholder="Patient Name">
+    <input type="number" id="age" placeholder="Age">
+
+    <h4>Select Symptoms</h4>
+    <div class="symptom-box" id="symptomBox"></div>
+
+    <textarea id="description" placeholder="Describe additional symptoms..."></textarea>
+    <button onclick="submitToAI()">Submit to AI</button>
+</div>
+
+<!-- AI Decision -->
+<div class="card">
+    <h3>🧠 AI Decision</h3>
+    <p id="decision">Waiting for input...</p>
+    <div class="progress">
+        <div class="progress-bar" id="confidenceBar"></div>
+    </div>
+</div>
+
+<!-- Recommendations -->
+<div class="card">
+    <h3>💡 AI Recommendations</h3>
+    <ul id="recommendations">
+        <li>Submit symptoms to get advice</li>
+    </ul>
+</div>
+
+<!-- Alerts -->
+<div class="card">
+    <h3>⚠ AI Alerts</h3>
+    <div class="alert" id="alertBox">No alerts</div>
+</div>
+
+<!-- Doctor Contact -->
+<div class="card">
+    <h3>👨‍⚕ Doctor Contact</h3>
+    <p><b>Name:</b> <span id="docName">Loading...</span></p>
+    <p><b>Email:</b> <span id="docEmail">Loading...</span></p>
+    <p><b>Location:</b> <span id="docLocation">Loading...</span></p>
+    <p><b>Timing:</b> <span id="docTiming">Loading...</span></p>
+</div>
+
+</div>
+
+<script>
+/* ================= SYMPTOMS ================= */
+const symptoms = [
+ "itching","skin_rash","continuous_sneezing","chills","joint_pain",
+ "vomiting","fatigue","weight_loss","cough","high_fever",
+ "breathlessness","headache","nausea","loss_of_appetite",
+ "abdominal_pain","diarrhoea","mild_fever","yellowing_of_eyes",
+ "chest_pain","dizziness","muscle_pain","depression","anxiety",
+ "blurred_vision","palpitations","back_pain","constipation",
+ "cramps","swelling_joints","loss_of_balance","unsteadiness",
+ "painful_walking","skin_peeling","blister","red_spots_over_body"
+];
+
+/* Render symptoms */
+const symptomBox = document.getElementById("symptomBox");
+symptoms.forEach(symptom=>{
+    const label=document.createElement("label");
+    label.innerHTML=`<input type="checkbox" value="${symptom}"> ${symptom.replace(/_/g," ")}`;
+    symptomBox.appendChild(label);
+});
+
+/* Submit patient data */
+function submitToAI(){
+    const name=document.getElementById("name").value;
+    const age=document.getElementById("age").value;
+    const desc=document.getElementById("description").value;
+
+    const selectedSymptoms=[...document.querySelectorAll("input[type=checkbox]:checked")]
+        .map(cb=>cb.value);
+
+    if(!name || !age || selectedSymptoms.length===0){
+        alert("Please fill all fields");
+        return;
+    }
+
+    fetch("http://127.0.0.1:5000/predict",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            name:name,
+            age:age,
+            symptoms:selectedSymptoms,
+            description:desc
+        })
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        document.getElementById("decision").innerText =
+            "Predicted Disease: " + data.predicted_disease;
+
+        document.getElementById("confidenceBar").style.width =
+            (data.confidence * 100) + "%";
+
+        document.getElementById("alertBox").innerText = data.alert;
+    })
+    .catch(()=>{
+        alert("Backend not responding");
+    });
+}
+
+/* ================= LOAD DOCTOR CONTACT ================= */
+function loadDoctorContact(){
+    fetch("http://127.0.0.1:5000/contact")
+    .then(res=>res.json())
+    .then(data=>{
+        document.getElementById("docName").innerText=data.doctor_name;
+        document.getElementById("docEmail").innerText=data.doctor_email;
+        document.getElementById("docLocation").innerText=data.location;
+        document.getElementById("docTiming").innerText=data.timing;
+    });
+}
+
+loadDoctorContact();
+</script>
+
+</body>
+</html>
